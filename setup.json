@@ -23,6 +23,7 @@
       "lammps.force = aiida_lammps.calculations.lammps.force:ForceCalculation",
       "lammps.md = aiida_lammps.calculations.lammps.md:MdCalculation",
       "lammps.optimize = aiida_lammps.calculations.lammps.optimize:OptimizeCalculation",
+      "lammps = aiida_lammps.calculation.lammps.template:TemplateCalculation",
       "dynaphopy = aiida_lammps.calculations.dynaphopy: DynaphopyCalculation"
     ],
     "aiida.parsers": [
