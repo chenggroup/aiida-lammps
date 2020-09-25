@@ -1,8 +1,8 @@
 import os
-import numpy as np
 from collections import Iterable
 from string import Template
 
+import numpy as np
 from aiida.common import CalcInfo, CodeInfo
 from aiida.engine import CalcJob, submit
 from aiida.orm import Code, Dict, SinglefileData, StructureData
@@ -28,8 +28,10 @@ class TemplateCalculation(CalcJob):
     @classmethod
     def define(cls, spec):
         super(TemplateCalculation, cls).define(spec)
-        spec.input('structure', valid_type=StructureData, help='the structure')
-        spec.input('template', valid_type=str, help='the input template file', required=False, non_db=True)
+        spec.input('structure', valid_type=(StructureData, SinglefileData),
+                   help='the structure')
+        spec.input('template', valid_type=str, help='the input template file',
+                   required=False, non_db=True)
         spec.input('variables', valid_type=dict, help='input variables in template', required=False, non_db=True)
         spec.input('kinds', valid_type=list, help='the sequence of elements', required=False, non_db=True)
         spec.input_namespace('file', valid_type=SinglefileData, required=False, dynamic=True)
@@ -85,7 +87,14 @@ class TemplateCalculation(CalcJob):
     def prepare_for_submission(self, tempfolder):
 
         # Setup structure
-        structure_txt, struct_transform = generate_lammps_structure(self.inputs.structure, kinds=self.inputs.kinds)
+        if isinstance(self.inputs.structure, StructureData):
+            structure_txt, struct_transform = generate_lammps_structure(
+                self.inputs.structure, kinds=self.inputs.kinds)
+        elif isinstance(self.inputs.structure, SinglefileData):
+            structure_txt = self.inputs.structure.get_content()
+        else:
+            raise TypeError(
+                'Input structure must be StructureData or SinglefileData')
 
         with open(self.inputs.template, 'r') as tempfile:
             temp_contents = tempfile.read()
@@ -93,7 +102,8 @@ class TemplateCalculation(CalcJob):
         input_txt = init_temp.safe_substitute(**self.inputs.variables)
         if 'kinds' in self.inputs:
             kind_temp = Template(input_txt)
-            kind_var = {kind: kind_index + 1 for kind_index, kind in enumerate(self.inputs.kinds)}
+            kind_var = {kind: kind_index + 1 for kind_index, kind in
+                        enumerate(self.inputs.kinds)}
             input_txt = kind_temp.safe_substitute(**kind_var)
 
         # =========================== dump to file =============================
@@ -129,7 +139,8 @@ class TemplateCalculation(CalcJob):
         if 'file' in self.inputs:
             calcinfo.local_copy_list = []
             for name, obj in self.inputs.file.items():
-                calcinfo.local_copy_list.append((obj.uuid, obj.filename, obj.filename))
+                calcinfo.local_copy_list.append(
+                    (obj.uuid, obj.filename, f'{name}.pb'))
 
         return calcinfo
 
@@ -149,7 +160,7 @@ def submit_mixlmp(structure, dummy_index, steps, temp, lambda_f, dft_graphs, dum
     builder = TemplateCalculation.get_builder()
     # builder.metadata.dry_run = True
     builder.code = Code.get_from_string('lammps@metal')
-    builder.setting = {'additional_retrieve_list': ['*.xyz', '*.out']}
+    builder.settings = {'additional_retrieve_list': ['*.xyz', '*.out']}
     builder.metadata.options.queue_name = 'large'
     builder.metadata.options.resources = {'tot_num_mpiprocs': 4}
     builder.metadata.options.custom_scheduler_commands = '#BSUB -R "span[ptile=4]"'
