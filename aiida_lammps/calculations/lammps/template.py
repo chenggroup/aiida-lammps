@@ -4,7 +4,8 @@ from string import Template
 
 import numpy as np
 from aiida.common import CalcInfo, CodeInfo
-from aiida.engine import CalcJob, submit
+from aiida.engine import BaseRestartWorkChain, CalcJob, ExitCode, \
+    process_handler, ProcessHandlerReport, submit, while_
 from aiida.orm import Code, Dict, SinglefileData, StructureData
 from ase import Atoms
 
@@ -143,6 +144,42 @@ class TemplateCalculation(CalcJob):
                     (obj.uuid, obj.filename, f'{name}.pb'))
 
         return calcinfo
+
+
+class TemplateWorkChain(BaseRestartWorkChain):
+    _process_class = TemplateCalculation
+
+    @classmethod
+    def define(cls, spec):
+        super(TemplateWorkChain, cls).define(spec)
+        spec.expose_inputs(TemplateCalculation)
+
+        spec.outline(
+            cls.setup,
+            while_(cls.should_run_process)(
+                cls.run_process,
+                cls.inspect_process,
+            ),
+            cls.results,
+        )
+
+        spec.expose_outputs(TemplateCalculation)
+
+    @process_handler(priority=500)
+    def resubmit_random_gpu_error(self, calc):
+        content_string = calc.outputs.retrieved.get_object_content(
+            calc.get_attribute('scheduler_stdout'))
+
+        gpu_error = "Invalid argument: No OpKernel was registered to support " \
+                    "Op 'DescrptSeA' with these attrs."
+        time_exceeded = "Total wall time:"
+        if gpu_error in content_string:
+            self.report("Inspect GPU Error")
+            return ProcessHandlerReport(False)
+
+        if gpu_error not in content_string or time_exceeded not in content_string:
+            self.report("Something wrong during moodel deviation")
+            ProcessHandlerReport(True, ExitCode(1))
 
 
 def generate_atoms_dummy(atoms, index):

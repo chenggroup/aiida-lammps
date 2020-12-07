@@ -35,6 +35,9 @@
     "aiida.data": [
       "lammps.potential = aiida_lammps.data.potential:EmpiricalPotential"
     ],
+    "aiida.workflows": [
+      "lammps.base = aiida_lammps.calculation.lammps.template:TemplateWorkChain"
+    ],
     "lammps.potentials": [
       "eam =  aiida_lammps.data.potential.eam",
       "lennard_jones =  aiida_lammps.data.potential.lennard_jones",
