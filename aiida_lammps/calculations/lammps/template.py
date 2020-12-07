@@ -175,9 +175,10 @@ class TemplateWorkChain(BaseRestartWorkChain):
         time_exceeded = "Total wall time:"
         if gpu_error in content_string:
             self.report("Inspect GPU Error")
-            return ProcessHandlerReport(False)
+            return ProcessHandlerReport(False, ExitCode(500))
 
-        if gpu_error not in content_string or time_exceeded not in content_string:
+        if (gpu_error not in content_string
+                or time_exceeded not in content_string):
             self.report("Something wrong during moodel deviation")
             ProcessHandlerReport(True, ExitCode(1))
 
