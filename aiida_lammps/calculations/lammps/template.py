@@ -3,7 +3,7 @@ from collections import Iterable
 from string import Template
 
 import numpy as np
-from aiida.common import CalcInfo, CodeInfo
+from aiida.common import AttributeDict, CalcInfo, CodeInfo
 from aiida.engine import BaseRestartWorkChain, CalcJob, ExitCode, \
     process_handler, ProcessHandlerReport, submit, while_
 from aiida.orm import Code, Dict, SinglefileData, StructureData
@@ -164,6 +164,11 @@ class TemplateWorkChain(BaseRestartWorkChain):
         )
 
         spec.expose_outputs(TemplateCalculation)
+
+    def setup(self):
+        super(TemplateWorkChain, self).setup()
+        self.ctx.inputs = AttributeDict(self.exposed_inputs(TemplateCalculation,
+                                                            'lmp'))
 
     @process_handler(priority=500)
     def resubmit_random_gpu_error(self, calc):
