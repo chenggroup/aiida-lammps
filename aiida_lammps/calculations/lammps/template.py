@@ -152,7 +152,7 @@ class TemplateWorkChain(BaseRestartWorkChain):
     @classmethod
     def define(cls, spec):
         super(TemplateWorkChain, cls).define(spec)
-        spec.expose_inputs(TemplateCalculation, exclude=['metadata'])
+        spec.expose_inputs(TemplateCalculation, namespace='lmp')
 
         spec.outline(
             cls.setup,
