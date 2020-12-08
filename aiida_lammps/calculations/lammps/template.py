@@ -180,7 +180,8 @@ class TemplateWorkChain(BaseRestartWorkChain):
         if (gpu_error not in content_string
                 or time_exceeded not in content_string):
             self.report("Something wrong during moodel deviation")
-            ProcessHandlerReport(True, ExitCode(1))
+            return ProcessHandlerReport(True, ExitCode(1))
+        return None
 
 
 def generate_atoms_dummy(atoms, index):
