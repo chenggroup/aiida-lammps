@@ -183,7 +183,7 @@ class TemplateWorkChain(BaseRestartWorkChain):
             return ProcessHandlerReport(False, ExitCode(500))
 
         if (gpu_error not in content_string
-                or time_exceeded not in content_string):
+                and time_exceeded not in content_string):
             self.report("Something wrong during moodel deviation")
             return ProcessHandlerReport(True, ExitCode(1))
         return None
