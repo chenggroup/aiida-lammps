@@ -1,5 +1,6 @@
 import os
 from collections import Iterable
+from itertools import product
 from string import Template
 
 import numpy as np
@@ -33,10 +34,15 @@ class TemplateCalculation(CalcJob):
                    help='the structure')
         spec.input('template', valid_type=str, help='the input template file',
                    required=False, non_db=True)
-        spec.input('variables', valid_type=dict, help='input variables in template', required=False, non_db=True)
-        spec.input('kinds', valid_type=list, help='the sequence of elements', required=False, non_db=True)
-        spec.input_namespace('file', valid_type=SinglefileData, required=False, dynamic=True)
-        spec.input('settings', valid_type=Dict, required=False, help='additional input parameters')
+        spec.input('variables', valid_type=dict,
+                   help='input variables in template', required=False,
+                   non_db=True)
+        spec.input('kinds', valid_type=list, help='the sequence of elements',
+                   required=False, non_db=True)
+        spec.input_namespace('file', valid_type=SinglefileData, required=False,
+                             dynamic=True)
+        spec.input('settings', valid_type=Dict, required=False,
+                   help='additional input parameters')
         spec.input('metadata.options.output_filename',
                    valid_type=str, default=cls._DEFAULT_OUTPUT_FILE_NAME)
         spec.input('metadata.options.trajectory_name',
@@ -44,7 +50,8 @@ class TemplateCalculation(CalcJob):
         spec.input('metadata.options.info_filename',
                    valid_type=str, default=cls._DEFAULT_OUTPUT_INFO_FILE_NAME)
         spec.input('metadata.options.restart_filename',
-                   valid_type=str, default=cls._DEFAULT_OUTPUT_RESTART_FILE_NAME)
+                   valid_type=str,
+                   default=cls._DEFAULT_OUTPUT_RESTART_FILE_NAME)
         spec.input('metadata.options.withmpi', valid_type=bool, default=False)
 
         spec.exit_code(
@@ -117,7 +124,8 @@ class TemplateCalculation(CalcJob):
             infile.write(structure_txt)
 
         # ============================ calcinfo ================================
-        settings = self.inputs.settings.get_dict() if 'settings' in self.inputs else {}
+        settings = self.inputs.settings.get_dict() \
+            if 'settings' in self.inputs else {}
 
         codeinfo = CodeInfo()
         codeinfo.cmdline_params = self._cmdline_params
@@ -130,7 +138,8 @@ class TemplateCalculation(CalcJob):
         calcinfo.cmdline_params = codeinfo.cmdline_params
         calcinfo.stdin_name = self._INPUT_FILE_NAME
         calcinfo.stdout_name = self._stdout_name
-        calcinfo.retrieve_list = self._retrieve_list + [self.options.output_filename]
+        calcinfo.retrieve_list = self._retrieve_list + [
+            self.options.output_filename]
         calcinfo.retrieve_list += settings.pop('additional_retrieve_list', [])
         calcinfo.retrieve_temporary_list = self._retrieve_temporary_list
         calcinfo.codes_info = [codeinfo]
@@ -200,7 +209,8 @@ def generate_atoms_dummy(atoms, index):
     return atoms_dummy
 
 
-def submit_mixlmp(structure, dummy_index, steps, temp, lambda_f, dft_graphs, dum_graphs):
+def submit_mixlmp(structure, dummy_index, steps, temp, lambda_f, dft_graphs,
+                  dum_graphs):
     builder = TemplateCalculation.get_builder()
     # builder.metadata.dry_run = True
     builder.code = Code.get_from_string('lammps@metal')
@@ -211,20 +221,126 @@ def submit_mixlmp(structure, dummy_index, steps, temp, lambda_f, dft_graphs, dum
     builder.template = os.path.abspath('template_lmp.in')
     files = {}
     for i, graph in enumerate(dft_graphs):
-        files.update({f'dft_graph_{i}': SinglefileData(file=graph, filename=f'dft_graph_{i}.pb')})
+        files.update({f'dft_graph_{i}': SinglefileData(file=graph,
+                                                       filename=f'dft_graph_{i}.pb')})
     for i, graph in enumerate(dum_graphs):
-        files.update({f'dum_graph_{i}': SinglefileData(file=graph, filename=f'dum_graph_{i}.pb')})
+        files.update({f'dum_graph_{i}': SinglefileData(file=graph,
+                                                       filename=f'dum_graph_{i}.pb')})
     builder.file = files
-    builder.variables = {'TBD_STEPS': steps, 'TBD_TEMP': temp, 'TBD_LAMBDA_f': lambda_f,
-                         'TBD_DFT': ' '.join([f + '.pb' for f in filter(lambda x: x.startswith('dft'), files.keys())]),
-                         'TBD_DUM': ' '.join([f + '.pb' for f in filter(lambda x: x.startswith('dum'), files.keys())]),
-                         'TBD_vel': np.random.randint(10000000), 'TBD_INPUT': TemplateCalculation._INPUT_STRUCTURE}
+    builder.variables = {'TBD_STEPS': steps, 'TBD_TEMP': temp,
+                         'TBD_LAMBDA_f': lambda_f,
+                         'TBD_DFT': ' '.join([f + '.pb' for f in filter(
+                             lambda x: x.startswith('dft'), files.keys())]),
+                         'TBD_DUM': ' '.join([f + '.pb' for f in filter(
+                             lambda x: x.startswith('dum'), files.keys())]),
+                         'TBD_vel': np.random.randint(10000000),
+                         'TBD_INPUT': TemplateCalculation._INPUT_STRUCTURE}
     builder.kinds = ['O', 'H', 'Na', 'Cl', 'X']
     if isinstance(structure, Atoms):
         atoms = structure
     elif isinstance(structure, StructureData):
         atoms = structure.get_ase()
     else:
-        raise TypeError("Unknown structure format, please use ase.Atoms or aiida.orm.StructureData")
-    builder.structure = StructureData(ase=generate_atoms_dummy(atoms, dummy_index))
+        raise TypeError(
+            "Unknown structure format, please use ase.Atoms or aiida.orm.StructureData")
+    builder.structure = StructureData(
+        ase=generate_atoms_dummy(atoms, dummy_index))
     submit(builder)
+
+
+class BatchTemplateCalculation(TemplateCalculation):
+    @classmethod
+    def define(cls, spec):
+        super(BatchTemplateCalculation, cls).define(spec)
+        spec.input('structures', valid_type=list, non_db=True)
+        spec.input('template', valid_type=str,
+                   required=False, non_db=True)
+        spec.input('variables', valid_type=dict,
+                   required=False, non_db=True)
+        spec.input('kinds', valid_type=list,
+                   required=False, non_db=True)
+        spec.input_namespace('file', valid_type=SinglefileData,
+                             required=False, dynamic=True)
+
+    def prepare_for_submission(self, tempfolder):
+        # Setup structure
+        with open(self.inputs.template, 'r') as tempfile:
+            temp_contents = tempfile.read()
+        lmp_template = Template(temp_contents)
+
+        # check variables
+        for variable in self.inputs.variables:
+            if not isinstance(variable, list):
+                raise TypeError('Values in variables must be list')
+        # check kinds
+        if 'kinds' in self.inputs:
+            kind_var = {kind: kind_index + 1 for kind_index, kind in
+                        enumerate(self.inputs.kinds)}
+            lmp_template = Template(lmp_template.safe_substitute(**kind_var))
+
+        n_batches = 0
+        for structure in self.inputs.structures:
+            if isinstance(structure, StructureData):
+                structure_txt, struct_transform = generate_lammps_structure(
+                    structure, kinds=self.inputs.kinds)
+            elif isinstance(structure, SinglefileData):
+                structure_txt = structure.get_content()
+            else:
+                raise TypeError(
+                    'Input structure must be StructureData or SinglefileData')
+            # loop with variables
+            for condition in [dict(zip(self.inputs.variables.keys(), v))
+                              for v in
+                              product(*self.inputs.variables.values())]:
+                input_txt = lmp_template.safe_substitute(**condition)
+
+                # ======================= dump to file =========================
+                # tempfolder.get_subfolder(n_batches, create=True)
+                input_filename = tempfolder.get_abs_path(
+                    f'{n_batches}/{self._INPUT_FILE_NAME}')
+                with open(input_filename, 'w') as infile:
+                    infile.write(input_txt)
+
+                structure_filename = tempfolder.get_abs_path(
+                    f'{n_batches}/{self._INPUT_STRUCTURE}')
+                with open(structure_filename, 'w') as infile:
+                    infile.write(structure_txt)
+
+                # update n_batches
+                n_batches += 1
+
+        # ============================ calcinfo ================================
+        settings = self.inputs.settings.get_dict() \
+            if 'settings' in self.inputs else {}
+
+        codeinfo = CodeInfo()
+        codeinfo.cmdline_params = self._cmdline_params
+        codeinfo.code_uuid = self.inputs.code.uuid
+        codeinfo.stdout_name = self._stdout_name
+        codeinfo.join_files = True
+
+        calcinfo = CalcInfo()
+        calcinfo.uuid = self.uuid
+        calcinfo.prepend_text = (f'for i in $(seq 0 {n_batches})\n'
+                                 'do\n'
+                                 'cd "${i}" || exit')
+        calcinfo.append_text = ('cd ..'
+                                'done')
+        calcinfo.cmdline_params = codeinfo.cmdline_params
+        calcinfo.stdin_name = self._INPUT_FILE_NAME
+        calcinfo.stdout_name = self._stdout_name
+        calcinfo.retrieve_list = self._retrieve_list + [
+            self.options.output_filename]
+        calcinfo.retrieve_list += settings.pop('additional_retrieve_list', [])
+        calcinfo.retrieve_temporary_list = self._retrieve_temporary_list
+        calcinfo.codes_info = [codeinfo]
+
+        # =========================== local_copy_list ==========================
+
+        if 'file' in self.inputs:
+            calcinfo.local_copy_list = []
+            for name, obj in self.inputs.file.items():
+                calcinfo.local_copy_list.append(
+                    (obj.uuid, obj.filename, f'{name}.pb'))
+
+        return calcinfo
