@@ -31,7 +31,7 @@ class TemplateCalculation(CalcJob):
     def define(cls, spec):
         super(TemplateCalculation, cls).define(spec)
         spec.input('structure', valid_type=(StructureData, SinglefileData),
-                   help='the structure')
+                   required=False, help='the structure')
         spec.input('template', valid_type=str, help='the input template file',
                    required=False, non_db=True)
         spec.input('variables', valid_type=dict,
@@ -269,7 +269,7 @@ class BatchTemplateCalculation(TemplateCalculation):
         lmp_template = Template(temp_contents)
 
         # check variables
-        for variable in self.inputs.variables:
+        for variable in self.inputs.variables.values():
             if not isinstance(variable, list):
                 raise TypeError('Values in variables must be list')
         # check kinds
