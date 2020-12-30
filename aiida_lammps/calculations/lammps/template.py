@@ -321,10 +321,10 @@ class BatchTemplateCalculation(TemplateCalculation):
 
         calcinfo = CalcInfo()
         calcinfo.uuid = self.uuid
-        calcinfo.prepend_text = (f'for i in $(seq 0 {n_batches})\n'
+        calcinfo.prepend_text = (f'for i in $(seq 0 {n_batches - 1})\n'
                                  'do\n'
                                  'cd "${i}" || exit')
-        calcinfo.append_text = ('cd ..'
+        calcinfo.append_text = ('cd ..\n'
                                 'done')
         calcinfo.cmdline_params = codeinfo.cmdline_params
         calcinfo.stdin_name = self._INPUT_FILE_NAME
