@@ -295,7 +295,7 @@ class BatchTemplateCalculation(TemplateCalculation):
                 input_txt = lmp_template.safe_substitute(**condition)
 
                 # ======================= dump to file =========================
-                # tempfolder.get_subfolder(n_batches, create=True)
+                tempfolder.get_subfolder(n_batches, create=True)
                 input_filename = tempfolder.get_abs_path(
                     f'{n_batches}/{self._INPUT_FILE_NAME}')
                 with open(input_filename, 'w') as infile:
