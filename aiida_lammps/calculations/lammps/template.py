@@ -1,6 +1,6 @@
+import json
 import os
 from collections import Iterable
-from itertools import product
 from string import Template
 
 import numpy as np
@@ -249,37 +249,55 @@ def submit_mixlmp(structure, dummy_index, steps, temp, lambda_f, dft_graphs,
 
 
 class BatchTemplateCalculation(TemplateCalculation):
+    """
+    OUTPUT TREE
+    ├── 0
+    │   ├── input.data
+    │   ├── input.in
+    │   ├── outputs...
+    │   └── model_devi.out
+    ├── folders same as 0...
+    ├── _aiidasubmit.sh
+    ├── graph_0.pb
+    ├── graph_1.pb
+    ├── graph_2.pb
+    ├── graph_3.pb
+    ├── _scheduler-stderr.txt
+    └── _scheduler-stdout.txt
+    """
+
     @classmethod
     def define(cls, spec):
         super(BatchTemplateCalculation, cls).define(spec)
-        spec.input('structures', valid_type=list, non_db=True)
+        spec.input('conditions', valid_type=list, non_db=True)
+        # spec.input('structures', valid_type=list, non_db=True)
         spec.input('template', valid_type=str,
                    required=False, non_db=True)
-        spec.input('variables', valid_type=dict,
-                   required=False, non_db=True)
+        # spec.input('variables', valid_type=dict,
+        #            required=False, non_db=True)
         spec.input('kinds', valid_type=list,
                    required=False, non_db=True)
         spec.input_namespace('file', valid_type=SinglefileData,
                              required=False, dynamic=True)
 
     def prepare_for_submission(self, tempfolder):
-        # Setup structure
+        # Setup template
         with open(self.inputs.template, 'r') as tempfile:
             temp_contents = tempfile.read()
         lmp_template = Template(temp_contents)
 
-        # check variables
-        for variable in self.inputs.variables.values():
-            if not isinstance(variable, list):
-                raise TypeError('Values in variables must be list')
+        # # check variables
+        # for variable in self.inputs.variables.values():
+        #     if not isinstance(variable, list):
+        #         raise TypeError('Values in variables must be list')
         # check kinds
         if 'kinds' in self.inputs:
             kind_var = {kind: kind_index + 1 for kind_index, kind in
                         enumerate(self.inputs.kinds)}
             lmp_template = Template(lmp_template.safe_substitute(**kind_var))
 
-        n_batches = 0
-        for structure in self.inputs.structures:
+        for i, condition in enumerate(self.inputs.conditions):
+            structure = condition.pop('structure')
             if isinstance(structure, StructureData):
                 structure_txt, struct_transform = generate_lammps_structure(
                     structure, kinds=self.inputs.kinds)
@@ -288,26 +306,25 @@ class BatchTemplateCalculation(TemplateCalculation):
             else:
                 raise TypeError(
                     'Input structure must be StructureData or SinglefileData')
-            # loop with variables
-            for condition in [dict(zip(self.inputs.variables.keys(), v))
-                              for v in
-                              product(*self.inputs.variables.values())]:
-                input_txt = lmp_template.safe_substitute(**condition)
+            input_txt = lmp_template.safe_substitute(**condition)
 
-                # ======================= dump to file =========================
-                tempfolder.get_subfolder(n_batches, create=True)
-                input_filename = tempfolder.get_abs_path(
-                    f'{n_batches}/{self._INPUT_FILE_NAME}')
-                with open(input_filename, 'w') as infile:
-                    infile.write(input_txt)
+            # ========================= dump to file ===========================
+            tempfolder.get_subfolder(i, create=True)
+            input_filename = tempfolder.get_abs_path(
+                f'{i}/{self._INPUT_FILE_NAME}')
+            with open(input_filename, 'w') as infile:
+                infile.write(input_txt)
 
-                structure_filename = tempfolder.get_abs_path(
-                    f'{n_batches}/{self._INPUT_STRUCTURE}')
-                with open(structure_filename, 'w') as infile:
-                    infile.write(structure_txt)
+            structure_filename = tempfolder.get_abs_path(
+                f'{i}/{self._INPUT_STRUCTURE}')
+            with open(structure_filename, 'w') as infile:
+                infile.write(structure_txt)
 
-                # update n_batches
-                n_batches += 1
+            condition_filename = tempfolder.get_abs_path(
+                f'{i}/condition.json')
+            with open(condition_filename, 'w') as infile:
+                json.dump(condition.update({'structure pk': structure.pk}),
+                          infile, sort_keys=True, indent=2)
 
         # ============================ calcinfo ================================
         settings = self.inputs.settings.get_dict() \
