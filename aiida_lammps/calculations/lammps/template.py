@@ -322,8 +322,9 @@ class BatchTemplateCalculation(TemplateCalculation):
 
             condition_filename = tempfolder.get_abs_path(
                 f'{i}/condition.json')
+            condition.update({'structure pk': structure.pk})
             with open(condition_filename, 'w') as infile:
-                json.dump(condition.update({'structure pk': structure.pk}),
+                json.dump(condition,
                           infile, sort_keys=True, indent=2)
 
         # ============================ calcinfo ================================
