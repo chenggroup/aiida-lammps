@@ -255,7 +255,8 @@ class BatchTemplateCalculation(TemplateCalculation):
     │   ├── input.data
     │   ├── input.in
     │   ├── outputs...
-    │   └── model_devi.out
+    │   ├── model_devi.out
+    │   └── case.json
     ├── folders same as 0...
     ├── _aiidasubmit.sh
     ├── graph_0.pb
@@ -269,7 +270,7 @@ class BatchTemplateCalculation(TemplateCalculation):
     @classmethod
     def define(cls, spec):
         super(BatchTemplateCalculation, cls).define(spec)
-        spec.input('conditions', valid_type=list, non_db=True)
+        spec.input('cases', valid_type=list, non_db=True)
         # spec.input('structures', valid_type=list, non_db=True)
         spec.input('template', valid_type=str,
                    required=False, non_db=True)
@@ -296,8 +297,8 @@ class BatchTemplateCalculation(TemplateCalculation):
                         enumerate(self.inputs.kinds)}
             lmp_template = Template(lmp_template.safe_substitute(**kind_var))
 
-        for i, condition in enumerate(self.inputs.conditions):
-            structure = condition.pop('structure')
+        for i, case in enumerate(self.inputs.cases):
+            structure = case.pop('structure')
             if isinstance(structure, StructureData):
                 structure_txt, struct_transform = generate_lammps_structure(
                     structure, kinds=self.inputs.kinds)
@@ -306,7 +307,7 @@ class BatchTemplateCalculation(TemplateCalculation):
             else:
                 raise TypeError(
                     'Input structure must be StructureData or SinglefileData')
-            input_txt = lmp_template.safe_substitute(**condition)
+            input_txt = lmp_template.safe_substitute(**case)
 
             # ========================= dump to file ===========================
             tempfolder.get_subfolder(i, create=True)
@@ -320,11 +321,10 @@ class BatchTemplateCalculation(TemplateCalculation):
             with open(structure_filename, 'w') as infile:
                 infile.write(structure_txt)
 
-            condition_filename = tempfolder.get_abs_path(
-                f'{i}/condition.json')
-            condition.update({'structure pk': structure.pk})
-            with open(condition_filename, 'w') as infile:
-                json.dump(condition,
+            case_filename = tempfolder.get_abs_path(f'{i}/case.json')
+            case.update({'structure pk': structure.pk})
+            with open(case_filename, 'w') as infile:
+                json.dump(case,
                           infile, sort_keys=True, indent=2)
 
         # ============================ calcinfo ================================
